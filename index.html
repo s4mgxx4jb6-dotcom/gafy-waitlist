@@ -95,9 +95,10 @@
 
     /* ---------- Form ---------- */
     .form-wrap { max-width: 480px; margin: 0 auto; }
-    .launchlist-form { display: flex; gap: 10px; flex-wrap: wrap; }
+    .launchlist-form { display: flex; flex-direction: column; gap: 10px; }
+    .form-row { display: flex; gap: 10px; }
     .launchlist-form input {
-      flex: 1 1 0; min-width: 140px; padding: 15px 18px;
+      flex: 1 1 0; min-width: 0; padding: 15px 18px;
       font-family: inherit; font-size: 16px; color: var(--ink);
       border: 1px solid #DCE2EC; border-radius: 14px; background: var(--surface); outline: none;
       transition: border-color .15s, box-shadow .15s;
@@ -105,7 +106,7 @@
     .launchlist-form input::placeholder { color: var(--faint); }
     .launchlist-form input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37,99,235,.12); }
     .launchlist-form button {
-      flex: 1 1 100%; width: 100%; padding: 16px 28px;
+      width: 100%; padding: 16px 28px;
       font-family: inherit; font-size: 16px; font-weight: 600; color: white;
       background: var(--primary); border: none; border-radius: 14px; cursor: pointer;
       transition: background .15s, transform .05s, box-shadow .15s;
@@ -204,9 +205,8 @@
     .reveal.in { opacity: 1; transform: none; }
     @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
 
-    @media (max-width: 520px) {
-      .launchlist-form { flex-direction: column; }
-      .launchlist-form button { width: 100%; }
+    @media (max-width: 480px) {
+      .form-row { flex-direction: column; }
       .cta-box { padding: 56px 24px; }
     }
   </style>
@@ -242,8 +242,10 @@
         <p class="subhead" data-i18n="hero_sub"></p>
         <div class="form-wrap">
           <form class="launchlist-form" action="https://getlaunchlist.com/s/h8GNxY" method="POST">
-            <input name="name" type="text" data-i18n-ph="form_name" />
-            <input name="email" type="email" required data-i18n-ph="form_email" />
+            <div class="form-row">
+              <input name="name" type="text" data-i18n-ph="form_name" />
+              <input name="email" type="email" required data-i18n-ph="form_email" />
+            </div>
             <button type="submit" data-i18n="form_button"></button>
           </form>
           <p class="form-note" data-i18n="form_note"></p>
