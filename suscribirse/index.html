@@ -119,8 +119,17 @@
     }
     .plan-main { flex: 1; min-width: 0; }
     .plan-name { font-weight: 700; color: var(--ink); font-size: 15px; }
-    .plan-price { text-align: right; }
-    .price { font-weight: 700; color: var(--ink); font-size: 14.5px; white-space: nowrap; }
+    .plan-trial {
+      display: inline-block; margin-top: 5px;
+      background: #E6F5EF; color: var(--income);
+      font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    }
+    .plan-price { text-align: right; margin-left: auto; padding-left: 10px; }
+    .anchor {
+      color: var(--faint); font-size: 12px; text-decoration: line-through;
+      text-decoration-color: var(--faint); margin-bottom: 1px; white-space: nowrap;
+    }
+    .price { font-weight: 700; color: var(--ink); font-size: 15px; white-space: nowrap; }
     .price .period { color: var(--muted); font-weight: 600; font-size: 12px; }
     .per { color: var(--muted); font-size: 11.5px; margin-top: 2px; white-space: nowrap; }
     .badge {
@@ -211,6 +220,6 @@
     </div>
   </div>
 
-  <script type="module" src="checkout.js?v=2"></script>
+  <script type="module" src="checkout.js?v=3"></script>
 </body>
 </html>

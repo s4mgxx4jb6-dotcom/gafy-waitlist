@@ -82,7 +82,8 @@ const planKind = (pkg) => {
   if (id.includes('week') || id === '$rc_weekly') return 'weekly';
   return 'other';
 };
-const priceOf = (pkg) => pkg?.rcBillingProduct?.currentPrice ?? pkg?.webBillingProduct?.currentPrice ?? null;
+const prodOf = (pkg) => pkg?.rcBillingProduct ?? pkg?.webBillingProduct ?? null;
+const priceOf = (pkg) => prodOf(pkg)?.currentPrice ?? null;
 const fmtPrice = (pkg) => priceOf(pkg)?.formattedPrice ?? '';
 
 // Formatea un monto al estilo de RevenueCat ("COP 3,652" / "USD 1.99").
@@ -103,19 +104,30 @@ function perWeek(pkg) {
   return '≈ ' + fmtAmount((p.amountMicros / 1e6) / div, p.currency ?? p.currencyCode ?? '') + '/sem';
 }
 
-// Badge del plan anual: "Ahorra X%" vs pagar semanal todo el año (o mensual x12).
-function annualBadge() {
+// Prueba gratis leída del producto (RevenueCat). "7 días gratis" para P1W.
+function trialLabel(pkg) {
+  const per = prodOf(pkg)?.defaultSubscriptionOption?.trial?.period;
+  if (!per) return null;
+  const n = per.number || 1;
+  if (per.unit === 'week') return (n * 7) + ' días gratis';
+  if (per.unit === 'day') return n + (n === 1 ? ' día gratis' : ' días gratis');
+  if (per.unit === 'month') return n + (n === 1 ? ' mes gratis' : ' meses gratis');
+  if (per.unit === 'year') return n + (n === 1 ? ' año gratis' : ' años gratis');
+  return 'Prueba gratis';
+}
+
+// Oferta del anual: precio "antes" REAL (= 12× mensual, o 52× semanal) tachado
+// + % de ahorro. Nada inventado: es lo que costaría pagar en el otro plan.
+function annualOffer() {
   const annual = packages.find((p) => planKind(p) === 'annual');
   if (!annual) return null;
   const a = priceOf(annual)?.amountMicros;
-  const weekly = priceOf(packages.find((p) => planKind(p) === 'weekly'))?.amountMicros;
+  const cur = priceOf(annual)?.currency;
   const monthly = priceOf(packages.find((p) => planKind(p) === 'monthly'))?.amountMicros;
-  const base = weekly ? weekly * 52 : monthly ? monthly * 12 : null;
-  if (a && base) {
-    const pct = Math.round((1 - a / base) * 100);
-    if (pct > 0) return 'Ahorra ' + pct + '%';
-  }
-  return 'Mejor valor';
+  const weekly = priceOf(packages.find((p) => planKind(p) === 'weekly'))?.amountMicros;
+  const baseMicros = monthly ? monthly * 12 : weekly ? weekly * 52 : null;
+  if (!a || !baseMicros || baseMicros <= a) return null;
+  return { anchor: fmtAmount(baseMicros / 1e6, cur), pct: Math.round((1 - a / baseMicros) * 100) };
 }
 
 // Construye el DOM con textContent (cero superficie de inyección).
@@ -129,26 +141,32 @@ const mk = (cls, text) => {
 const renderPlans = () => {
   const wrap = $('plans');
   wrap.textContent = '';
-  const badge = annualBadge();
+  const offer = annualOffer();
   packages.forEach((pkg) => {
     const kind = planKind(pkg);
+    const isAnnual = kind === 'annual';
 
+    // Izquierda: nombre + prueba gratis (en el mismo box del plan).
     const main = mk('plan-main');
     main.appendChild(mk('plan-name', LABEL[kind] ?? pkg.identifier));
+    const trial = trialLabel(pkg);
+    if (trial) main.appendChild(mk('plan-trial', trial));
 
+    // Derecha (pegada al borde): precio "antes" tachado en anual + precio + /sem.
+    const priceBox = mk('plan-price');
+    if (isAnnual && offer) priceBox.appendChild(mk('anchor', offer.anchor));
     const price = mk('price', fmtPrice(pkg));
     const period = document.createElement('span');
     period.className = 'period';
     period.textContent = PERIOD[kind] ?? '';
     price.appendChild(period);
-    const priceBox = mk('plan-price');
     priceBox.appendChild(price);
     const pw = perWeek(pkg);
     if (pw) priceBox.appendChild(mk('per', pw));
 
-    const card = mk('plan' + (pkg === selected ? ' selected' : ''));
+    const card = mk('plan' + (pkg === selected ? ' selected' : '') + (isAnnual ? ' featured' : ''));
     card.append(mk('radio'), main, priceBox);
-    if (kind === 'annual' && badge) card.appendChild(mk('badge', badge));
+    if (isAnnual) card.appendChild(mk('badge', offer ? ('Ahorra ' + offer.pct + '%') : 'Mejor valor'));
     card.onclick = () => { selected = pkg; renderPlans(); };
     wrap.appendChild(card);
   });
