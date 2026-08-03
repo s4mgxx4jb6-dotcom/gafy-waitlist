@@ -26,11 +26,17 @@ const RC_WEB_BILLING_API_KEY = 'rcb_sb_szJUkByfCRKlpNfPEaQQvjqzR';
 
 // Debe coincidir con el entitlement de RevenueCat (igual que en la app).
 const ENTITLEMENT_ID = 'plus';
+
+// Cliente OAuth web (el mismo "ID de cliente web" del proveedor Google en
+// Firebase). Se usa con Google Identity Services: el botón devuelve un ID token
+// que se canjea con signInWithCredential, sin el iframe cross-domain de
+// firebaseapp.com (que Chrome rompe con el particionado de almacenamiento).
+const GOOGLE_CLIENT_ID = '652137234079-l4gqtbi1752bu3p3od9ah4pq9j9ofar8.apps.googleusercontent.com';
 // ─────────────────────────────────────────────────────────────────────────
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence,
+  getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { Purchases } from 'https://esm.sh/@revenuecat/purchases-js@0.15.1';
 
@@ -137,13 +143,44 @@ $('subscribeBtn').onclick = async () => {
   }
 };
 
-$('googleBtn').onclick = async () => {
-  try {
-    await signInWithPopup(auth, new GoogleAuthProvider());
-  } catch (e) {
-    fatal('No se pudo iniciar sesión con Google. ' + (e?.message || ''));
-  }
-};
+// Google Identity Services: carga el SDK, lo inicializa y renderiza el botón
+// oficial de Google. El botón devuelve un ID token que se canjea con
+// signInWithCredential — NO pasa por el iframe de firebaseapp.com, así que
+// funciona con el almacenamiento particionado de Chrome (que rompía el popup).
+function loadGis() {
+  return new Promise((resolve, reject) => {
+    if (window.google?.accounts?.id) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('No se pudo cargar Google Identity Services.'));
+    document.head.appendChild(s);
+  });
+}
+
+let _gisReady = false;
+async function initGoogleButton() {
+  if (_gisReady) return;
+  await loadGis();
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: async (resp) => {
+      try {
+        const cred = GoogleAuthProvider.credential(resp.credential);
+        await signInWithCredential(auth, cred);
+        // onAuthStateChanged continúa el flujo (carga de planes).
+      } catch (e) {
+        fatal('No se pudo iniciar sesión. ' + (e?.message || ''));
+      }
+    },
+  });
+  google.accounts.id.renderButton($('googleBtn'), {
+    theme: 'filled_blue', size: 'large', text: 'continue_with', shape: 'pill', width: 300,
+  });
+  _gisReady = true;
+}
+
 $('signout1').onclick = () => signOut(auth);
 
 // Enruta según sesión. onAuthStateChanged también captura la sesión ya
@@ -151,7 +188,11 @@ $('signout1').onclick = () => signOut(auth);
 // La identidad SIEMPRE sale del login autenticado (user.uid), nunca del
 // parámetro app_user_id de la URL — así nadie puede suplantar otra cuenta.
 onAuthStateChanged(auth, async (user) => {
-  if (!user) { show('signin'); return; }
+  if (!user) {
+    show('signin');
+    initGoogleButton().catch((e) => fatal(e?.message || 'Error cargando el login de Google.'));
+    return;
+  }
   $('userEmail').textContent = user.email ?? user.uid;
   show('loading');
   try {
