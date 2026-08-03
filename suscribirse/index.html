@@ -10,8 +10,8 @@
     Content-Security-Policy: lista blanca de orígenes. El script propio va en un
     archivo externo (checkout.js), así NO se necesita 'unsafe-inline' en script:
     cualquier <script> inyectado por un atacante queda bloqueado por el navegador.
-    Orígenes permitidos: Firebase (gstatic/googleapis), RevenueCat (esm.sh + api)
-    y Stripe (js/api/iframes del checkout).
+    Orígenes permitidos: Firebase (gstatic/googleapis), RevenueCat (esm.sh + api),
+    Stripe (js/api/iframes) y Apple (appleid).
     NOTA: si tu hosting permite cabeceras HTTP, es mejor servir esta misma CSP
     como header 'Content-Security-Policy' en vez de <meta>. Tras desplegar, haz
     una compra de prueba y revisa la consola: si algo se bloquea, agrega ese
@@ -35,116 +35,140 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <style>
+    /* Paleta del tema (light) de la app Gafy */
     :root {
-      --primary: #2563EB;
-      --primary-dark: #1d4ed8;
-      --ink: #0B1220;
-      --text: #1E293B;
-      --muted: #64748B;
-      --line: #ECEFF4;
+      --primary: #1E40AF;
+      --tint: #EEF2FB;
+      --bg: #F5F5F7;
       --surface: #FFFFFF;
-      --income: #10B981;
-      --bg: #F6F8FC;
+      --income: #059669;
+      --ink: #111114;
+      --muted: #6E6E73;
+      --faint: #8E8E93;
+      --border: #E6E6EB;
+      --expense: #DC2626;
+      --grad: linear-gradient(135deg, #4E86F5 0%, #7C3AED 100%);
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
-      color: var(--text);
-      line-height: 1.55;
+      color: var(--ink);
+      line-height: 1.5;
       -webkit-font-smoothing: antialiased;
       min-height: 100dvh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
     }
     .card {
       background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 24px;
-      width: 100%;
-      max-width: 420px;
-      padding: 32px 28px;
-      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.06);
+      border-radius: 26px;
+      width: 100%; max-width: 430px;
+      padding: 26px 24px 22px;
+      box-shadow: 0 18px 50px rgba(17, 17, 20, 0.08);
     }
+
+    /* Hero (headline + mockups), estilo paywall de la app */
     .logo {
-      width: 52px; height: 52px; border-radius: 14px;
-      background: var(--ink); margin: 0 auto 18px;
+      width: 46px; height: 46px; border-radius: 13px;
+      background: var(--grad); margin: 0 auto 16px;
       display: grid; place-items: center;
+      box-shadow: 0 6px 16px rgba(78, 134, 245, 0.35);
     }
-    .logo svg { width: 30px; height: 30px; }
-    h1 { font-size: 22px; font-weight: 800; text-align: center; color: var(--ink); }
-    .sub { text-align: center; color: var(--muted); font-size: 14px; margin-top: 6px; }
-    .status { text-align: center; color: var(--muted); font-size: 14px; margin: 18px 0; }
+    .logo svg { width: 27px; height: 27px; }
+    h1 { font-size: 21px; font-weight: 800; text-align: center; color: var(--ink); line-height: 1.22; }
+    .sub { text-align: center; color: var(--muted); font-size: 13px; margin-top: 6px; font-weight: 500; }
+    .mockups { display: block; width: 100%; max-width: 300px; margin: 16px auto 4px; }
+
+    .status { text-align: center; color: var(--muted); font-size: 14px; margin: 26px 0; }
 
     button {
       font-family: inherit; font-weight: 700; font-size: 15px;
-      width: 100%; border: none; border-radius: 14px; padding: 14px 16px;
-      cursor: pointer; transition: opacity .15s, transform .05s;
+      width: 100%; border: none; border-radius: 14px; padding: 15px 16px;
+      cursor: pointer; transition: filter .15s, opacity .15s, transform .05s;
     }
     button:active { transform: scale(0.99); }
-    button:disabled { opacity: .5; cursor: default; }
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
-    .btn-google {
-      background: #fff; color: var(--text); border: 1px solid var(--line);
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-    }
-    .btn-ghost { background: transparent; color: var(--muted); font-weight: 600; font-size: 13px; padding: 8px; }
-
-    .plans { display: flex; flex-direction: column; gap: 10px; margin: 18px 0; }
-    .plan {
-      border: 2px solid var(--line); border-radius: 16px; padding: 14px 16px;
-      cursor: pointer; display: flex; align-items: center; justify-content: space-between;
-      transition: border-color .15s, background .15s;
-    }
-    .plan.selected { border-color: var(--primary); background: #EFF4FF; }
-    .plan .name { font-weight: 700; color: var(--ink); }
-    .plan .price { font-weight: 700; color: var(--ink); font-size: 15px; }
-    .plan .badge {
-      background: var(--income); color: #fff; font-size: 11px; font-weight: 700;
-      padding: 2px 8px; border-radius: 999px; margin-left: 8px;
-    }
-    .who {
-      background: var(--bg); border-radius: 12px; padding: 10px 12px;
-      font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 16px;
-      word-break: break-all;
-    }
-    .who b { color: var(--text); }
-    .success-icon { width: 56px; height: 56px; margin: 0 auto 14px; color: var(--income); }
-    .hidden { display: none !important; }
-    .gbtn-wrap { display: flex; justify-content: center; min-height: 44px; }
+    button:disabled { opacity: .55; cursor: default; }
+    .btn-cta { background: var(--grad); color: #fff; box-shadow: 0 8px 20px rgba(78, 134, 245, 0.3); }
+    .btn-cta:hover:not(:disabled) { filter: brightness(1.05); }
     .btn-apple {
       background: #000; color: #fff; margin-top: 10px;
       display: flex; align-items: center; justify-content: center; gap: 10px;
     }
     .btn-apple svg { width: 16px; height: 16px; margin-top: -2px; }
-    .foot { text-align: center; font-size: 11px; color: var(--muted); margin-top: 18px; line-height: 1.5; }
+    .btn-ghost { background: transparent; color: var(--muted); font-weight: 600; font-size: 13px; padding: 8px; }
+    .gbtn-wrap { display: flex; justify-content: center; min-height: 44px; }
+
+    /* Tarjetas de plan — réplica del paywall de la app */
+    .plans { display: flex; flex-direction: column; gap: 9px; margin: 6px 0 0; }
+    .plan {
+      position: relative; display: flex; align-items: center; gap: 12px;
+      border: 2px solid var(--border); border-radius: 16px; padding: 12px 15px;
+      cursor: pointer; background: var(--surface);
+      transition: border-color .15s, background .15s;
+    }
+    .plan.selected { border-color: var(--primary); background: var(--tint); }
+    .radio {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 2px solid #C7C7CC; flex: 0 0 auto; position: relative;
+      transition: border-color .15s;
+    }
+    .plan.selected .radio { border-color: var(--primary); }
+    .plan.selected .radio::after {
+      content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--primary);
+    }
+    .plan-main { flex: 1; min-width: 0; }
+    .plan-name { font-weight: 700; color: var(--ink); font-size: 15px; }
+    .plan-price { text-align: right; }
+    .price { font-weight: 700; color: var(--ink); font-size: 14.5px; white-space: nowrap; }
+    .price .period { color: var(--muted); font-weight: 600; font-size: 12px; }
+    .per { color: var(--muted); font-size: 11.5px; margin-top: 2px; white-space: nowrap; }
+    .badge {
+      position: absolute; top: -9px; right: 14px;
+      background: var(--income); color: #fff; font-size: 10.5px; font-weight: 700;
+      padding: 3px 9px; border-radius: 999px; letter-spacing: .2px;
+    }
+
+    .reassure {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      margin: 16px 0 10px; color: var(--muted); font-weight: 700; font-size: 12px;
+    }
+    .reassure svg { width: 14px; height: 14px; color: var(--income); flex: 0 0 auto; }
+    .terms { text-align: center; font-size: 10.5px; color: var(--faint); margin-top: 8px; line-height: 1.45; }
+    .acct { text-align: center; font-size: 12px; color: var(--muted); margin-top: 10px; word-break: break-all; }
+    .acct b { color: var(--ink); font-weight: 600; }
+
+    .success-icon { width: 56px; height: 56px; margin: 8px auto 14px; color: var(--income); }
+    .err { color: var(--expense); font-size: 13px; text-align: center; margin-top: 10px; }
+    .hidden { display: none !important; }
+    .foot { text-align: center; font-size: 11px; color: var(--faint); margin-top: 16px; line-height: 1.5; }
     .foot a { color: var(--primary); text-decoration: none; }
-    .err { color: var(--expense, #EF4444); font-size: 13px; text-align: center; margin-top: 10px; }
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="logo">
-      <svg viewBox="0 0 280 280" xmlns="http://www.w3.org/2000/svg">
-        <rect x="82" y="105" width="116" height="80" rx="16" fill="white" opacity="0.25"/>
-        <rect x="88" y="100" width="116" height="80" rx="16" fill="white" opacity="0.5"/>
-        <rect x="94" y="95" width="116" height="80" rx="16" fill="white"/>
-        <circle cx="180" cy="135" r="14" fill="white" opacity="0.2"/>
-        <circle cx="180" cy="135" r="8" fill="#0F172A"/>
-      </svg>
+    <!-- Hero: se muestra en login y en planes (como el paywall de la app) -->
+    <div id="hero">
+      <div class="logo">
+        <svg viewBox="0 0 280 280" xmlns="http://www.w3.org/2000/svg">
+          <rect x="82" y="105" width="116" height="80" rx="16" fill="white" opacity="0.25"/>
+          <rect x="88" y="100" width="116" height="80" rx="16" fill="white" opacity="0.5"/>
+          <rect x="94" y="95" width="116" height="80" rx="16" fill="white"/>
+          <circle cx="180" cy="135" r="14" fill="white" opacity="0.2"/>
+          <circle cx="180" cy="135" r="8" fill="#1E40AF"/>
+        </svg>
+      </div>
+      <h1>Toma el control de tu dinero.</h1>
+      <p class="sub">Empieza gratis · 7 días, sin cargo hoy</p>
+      <img class="mockups" src="paywall_mockups.png" alt="Gafy" />
     </div>
-    <h1>Gafy Plus</h1>
-    <p class="sub">Toma el control de tu dinero.</p>
 
     <!-- Estado: cargando -->
     <div id="loading"><p class="status">Cargando…</p></div>
 
     <!-- Estado: iniciar sesión -->
     <div id="signin" class="hidden">
-      <p class="status">Inicia sesión con la misma cuenta que usas en la app para activar tu suscripción.</p>
+      <p class="status" style="margin:14px 0 12px">Inicia sesión con la misma cuenta que usas en la app.</p>
       <div id="googleBtn" class="gbtn-wrap"></div>
       <button id="appleBtn" class="btn-apple">
         <svg viewBox="0 0 384 512" fill="currentColor" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
@@ -154,10 +178,15 @@
 
     <!-- Estado: elegir plan -->
     <div id="plans-view" class="hidden">
-      <div class="who">Suscribiendo la cuenta<br><b id="userEmail"></b></div>
       <div id="plans" class="plans"></div>
-      <button id="subscribeBtn" class="btn-primary">Suscribirme</button>
+      <div class="reassure">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Sin cargo hoy · Cancela cuando quieras
+      </div>
+      <button id="subscribeBtn" class="btn-cta">Comenzar prueba gratis</button>
       <div id="purchaseErr" class="err hidden"></div>
+      <p class="terms">Se renueva automáticamente al terminar la prueba. Gestiona o cancela cuando quieras desde tu cuenta.</p>
+      <div class="acct">Cuenta: <b id="userEmail"></b></div>
       <button id="signout1" class="btn-ghost">Usar otra cuenta</button>
     </div>
 
@@ -170,7 +199,7 @@
 
     <!-- Estado: error de config/carga -->
     <div id="fatal" class="hidden">
-      <p class="err" id="fatalMsg"></p>
+      <p class="err" id="fatalMsg" style="margin-top:24px"></p>
       <button class="btn-ghost" onclick="location.reload()">Reintentar</button>
     </div>
 

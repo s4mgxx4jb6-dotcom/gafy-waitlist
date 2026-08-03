@@ -46,10 +46,14 @@ import {
 import { Purchases } from 'https://esm.sh/@revenuecat/purchases-js@0.15.1';
 
 const $ = (id) => document.getElementById(id);
+// El hero (headline + mockups del producto) se muestra en login y en planes,
+// como el paywall de la app; se oculta en cargando/éxito/error.
+const HERO_IN = new Set(['signin', 'plans-view']);
 const show = (id) => {
   for (const s of ['loading', 'signin', 'plans-view', 'success', 'fatal']) {
     $(s).classList.toggle('hidden', s !== id);
   }
+  $('hero').classList.toggle('hidden', !HERO_IN.has(id));
 };
 const fatal = (msg) => { $('fatalMsg').textContent = msg; show('fatal'); };
 
@@ -67,46 +71,86 @@ let purchases = null;
 let packages = [];
 let selected = null;
 
-const fmtPrice = (pkg) => {
-  // purchases-js expone el precio formateado en el producto.
-  const p = pkg.rcBillingProduct?.currentPrice ?? pkg.webBillingProduct?.currentPrice;
-  return p?.formattedPrice ?? '';
-};
-const planName = (pkg) => {
+const PERIOD = { weekly: '/sem', monthly: '/mes', annual: '/año' };
+const LABEL = { weekly: 'Semanal', monthly: 'Mensual', annual: 'Anual' };
+const WEEKS = { monthly: 4.345, annual: 52.14 };
+
+const planKind = (pkg) => {
   const id = (pkg.identifier || '').toLowerCase();
-  if (id.includes('year') || id.includes('annual') || id === '$rc_annual') return 'Anual';
-  if (id.includes('month') || id === '$rc_monthly') return 'Mensual';
-  if (id.includes('week') || id === '$rc_weekly') return 'Semanal';
-  return pkg.rcBillingProduct?.title ?? pkg.identifier;
+  if (id.includes('year') || id.includes('annual') || id === '$rc_annual') return 'annual';
+  if (id.includes('month') || id === '$rc_monthly') return 'monthly';
+  if (id.includes('week') || id === '$rc_weekly') return 'weekly';
+  return 'other';
+};
+const priceOf = (pkg) => pkg?.rcBillingProduct?.currentPrice ?? pkg?.webBillingProduct?.currentPrice ?? null;
+const fmtPrice = (pkg) => priceOf(pkg)?.formattedPrice ?? '';
+
+// Formatea un monto al estilo de RevenueCat ("COP 3,652" / "USD 1.99").
+function fmtAmount(amount, currency) {
+  const noDecimals = ['COP', 'CLP', 'JPY', 'KRW'].includes(currency);
+  const s = amount.toLocaleString('en-US', {
+    minimumFractionDigits: noDecimals ? 0 : 2,
+    maximumFractionDigits: noDecimals ? 0 : 2,
+  });
+  return (currency ? currency + ' ' : '') + s;
+}
+
+// "≈ COP X/sem" para mensual y anual: pone todos los planes en el mismo plazo.
+function perWeek(pkg) {
+  const p = priceOf(pkg);
+  const div = WEEKS[planKind(pkg)];
+  if (!p || p.amountMicros == null || !div) return null;
+  return '≈ ' + fmtAmount((p.amountMicros / 1e6) / div, p.currency ?? p.currencyCode ?? '') + '/sem';
+}
+
+// Badge del plan anual: "Ahorra X%" vs pagar semanal todo el año (o mensual x12).
+function annualBadge() {
+  const annual = packages.find((p) => planKind(p) === 'annual');
+  if (!annual) return null;
+  const a = priceOf(annual)?.amountMicros;
+  const weekly = priceOf(packages.find((p) => planKind(p) === 'weekly'))?.amountMicros;
+  const monthly = priceOf(packages.find((p) => planKind(p) === 'monthly'))?.amountMicros;
+  const base = weekly ? weekly * 52 : monthly ? monthly * 12 : null;
+  if (a && base) {
+    const pct = Math.round((1 - a / base) * 100);
+    if (pct > 0) return 'Ahorra ' + pct + '%';
+  }
+  return 'Mejor valor';
+}
+
+// Construye el DOM con textContent (cero superficie de inyección).
+const mk = (cls, text) => {
+  const d = document.createElement('div');
+  d.className = cls;
+  if (text != null) d.textContent = text;
+  return d;
 };
 
-// Render sin innerHTML: se construye el DOM con textContent (cero superficie de
-// inyección, aunque los datos vengan de RevenueCat y no del usuario).
 const renderPlans = () => {
-  const el = $('plans');
-  el.textContent = '';
+  const wrap = $('plans');
+  wrap.textContent = '';
+  const badge = annualBadge();
   packages.forEach((pkg) => {
-    const isAnnual = planName(pkg) === 'Anual';
+    const kind = planKind(pkg);
 
-    const name = document.createElement('span');
-    name.className = 'name';
-    name.textContent = planName(pkg);
-    if (isAnnual) {
-      const badge = document.createElement('span');
-      badge.className = 'badge';
-      badge.textContent = 'Mejor valor';
-      name.appendChild(badge);
-    }
+    const main = mk('plan-main');
+    main.appendChild(mk('plan-name', LABEL[kind] ?? pkg.identifier));
 
-    const price = document.createElement('span');
-    price.className = 'price';
-    price.textContent = fmtPrice(pkg);
+    const price = mk('price', fmtPrice(pkg));
+    const period = document.createElement('span');
+    period.className = 'period';
+    period.textContent = PERIOD[kind] ?? '';
+    price.appendChild(period);
+    const priceBox = mk('plan-price');
+    priceBox.appendChild(price);
+    const pw = perWeek(pkg);
+    if (pw) priceBox.appendChild(mk('per', pw));
 
-    const div = document.createElement('div');
-    div.className = 'plan' + (pkg === selected ? ' selected' : '');
-    div.append(name, price);
-    div.onclick = () => { selected = pkg; renderPlans(); };
-    el.appendChild(div);
+    const card = mk('plan' + (pkg === selected ? ' selected' : ''));
+    card.append(mk('radio'), main, priceBox);
+    if (kind === 'annual' && badge) card.appendChild(mk('badge', badge));
+    card.onclick = () => { selected = pkg; renderPlans(); };
+    wrap.appendChild(card);
   });
 };
 
@@ -120,7 +164,7 @@ const loadOfferings = async (uid) => {
   }
   packages = current.availablePackages;
   // Preselecciona el anual si existe.
-  selected = packages.find((p) => planName(p) === 'Anual') ?? packages[0];
+  selected = packages.find((p) => planKind(p) === 'annual') ?? packages[0];
   renderPlans();
   show('plans-view');
 };
