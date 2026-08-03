@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gafy Plus — Suscríbete</title>
+  <meta name="robots" content="noindex" />
+
+  <!--
+    Content-Security-Policy: lista blanca de orígenes. El script propio va en un
+    archivo externo (checkout.js), así NO se necesita 'unsafe-inline' en script:
+    cualquier <script> inyectado por un atacante queda bloqueado por el navegador.
+    Orígenes permitidos: Firebase (gstatic/googleapis), RevenueCat (esm.sh + api)
+    y Stripe (js/api/iframes del checkout).
+    NOTA: si tu hosting permite cabeceras HTTP, es mejor servir esta misma CSP
+    como header 'Content-Security-Policy' en vez de <meta>. Tras desplegar, haz
+    una compra de prueba y revisa la consola: si algo se bloquea, agrega ese
+    origen exacto a la directiva que corresponda.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' https://www.gstatic.com https://esm.sh https://js.stripe.com;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    font-src https://fonts.gstatic.com;
+    img-src 'self' data:;
+    connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://esm.sh https://api.revenuecat.com https://api.stripe.com https://*.stripe.com;
+    frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://gafy-f674f.firebaseapp.com;
+    base-uri 'self';
+    object-src 'none';
+    form-action 'self' https://*.stripe.com;
+  " />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --primary: #2563EB;
+      --primary-dark: #1d4ed8;
+      --ink: #0B1220;
+      --text: #1E293B;
+      --muted: #64748B;
+      --line: #ECEFF4;
+      --surface: #FFFFFF;
+      --income: #10B981;
+      --bg: #F6F8FC;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      width: 100%;
+      max-width: 420px;
+      padding: 32px 28px;
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.06);
+    }
+    .logo {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: var(--ink); margin: 0 auto 18px;
+      display: grid; place-items: center;
+    }
+    .logo svg { width: 30px; height: 30px; }
+    h1 { font-size: 22px; font-weight: 800; text-align: center; color: var(--ink); }
+    .sub { text-align: center; color: var(--muted); font-size: 14px; margin-top: 6px; }
+    .status { text-align: center; color: var(--muted); font-size: 14px; margin: 18px 0; }
+
+    button {
+      font-family: inherit; font-weight: 700; font-size: 15px;
+      width: 100%; border: none; border-radius: 14px; padding: 14px 16px;
+      cursor: pointer; transition: opacity .15s, transform .05s;
+    }
+    button:active { transform: scale(0.99); }
+    button:disabled { opacity: .5; cursor: default; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+    .btn-google {
+      background: #fff; color: var(--text); border: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .btn-ghost { background: transparent; color: var(--muted); font-weight: 600; font-size: 13px; padding: 8px; }
+
+    .plans { display: flex; flex-direction: column; gap: 10px; margin: 18px 0; }
+    .plan {
+      border: 2px solid var(--line); border-radius: 16px; padding: 14px 16px;
+      cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+      transition: border-color .15s, background .15s;
+    }
+    .plan.selected { border-color: var(--primary); background: #EFF4FF; }
+    .plan .name { font-weight: 700; color: var(--ink); }
+    .plan .price { font-weight: 700; color: var(--ink); font-size: 15px; }
+    .plan .badge {
+      background: var(--income); color: #fff; font-size: 11px; font-weight: 700;
+      padding: 2px 8px; border-radius: 999px; margin-left: 8px;
+    }
+    .who {
+      background: var(--bg); border-radius: 12px; padding: 10px 12px;
+      font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 16px;
+      word-break: break-all;
+    }
+    .who b { color: var(--text); }
+    .success-icon { width: 56px; height: 56px; margin: 0 auto 14px; color: var(--income); }
+    .hidden { display: none !important; }
+    .foot { text-align: center; font-size: 11px; color: var(--muted); margin-top: 18px; line-height: 1.5; }
+    .foot a { color: var(--primary); text-decoration: none; }
+    .err { color: var(--expense, #EF4444); font-size: 13px; text-align: center; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <svg viewBox="0 0 280 280" xmlns="http://www.w3.org/2000/svg">
+        <rect x="82" y="105" width="116" height="80" rx="16" fill="white" opacity="0.25"/>
+        <rect x="88" y="100" width="116" height="80" rx="16" fill="white" opacity="0.5"/>
+        <rect x="94" y="95" width="116" height="80" rx="16" fill="white"/>
+        <circle cx="180" cy="135" r="14" fill="white" opacity="0.2"/>
+        <circle cx="180" cy="135" r="8" fill="#0F172A"/>
+      </svg>
+    </div>
+    <h1>Gafy Plus</h1>
+    <p class="sub">Toma el control de tu dinero.</p>
+
+    <!-- Estado: cargando -->
+    <div id="loading"><p class="status">Cargando…</p></div>
+
+    <!-- Estado: iniciar sesión -->
+    <div id="signin" class="hidden">
+      <p class="status">Inicia sesión con la misma cuenta que usas en la app para activar tu suscripción.</p>
+      <button id="googleBtn" class="btn-google">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continuar con Google
+      </button>
+    </div>
+
+    <!-- Estado: elegir plan -->
+    <div id="plans-view" class="hidden">
+      <div class="who">Suscribiendo la cuenta<br><b id="userEmail"></b></div>
+      <div id="plans" class="plans"></div>
+      <button id="subscribeBtn" class="btn-primary">Suscribirme</button>
+      <div id="purchaseErr" class="err hidden"></div>
+      <button id="signout1" class="btn-ghost">Usar otra cuenta</button>
+    </div>
+
+    <!-- Estado: éxito -->
+    <div id="success" class="hidden" style="text-align:center">
+      <svg class="success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <h1>¡Listo!</h1>
+      <p class="sub" style="margin-top:10px">Tu suscripción a Gafy Plus está activa.<br>Vuelve a la app y toca <b>Actualizar</b>.</p>
+    </div>
+
+    <!-- Estado: error de config/carga -->
+    <div id="fatal" class="hidden">
+      <p class="err" id="fatalMsg"></p>
+      <button class="btn-ghost" onclick="location.reload()">Reintentar</button>
+    </div>
+
+    <div class="foot">
+      Pago seguro procesado por Stripe.<br>
+      <a href="https://s4mgxx4jb6-dotcom.github.io/gafy-privacy/" target="_blank" rel="noopener">Política de privacidad</a>
+      &nbsp;·&nbsp;
+      <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noopener">Términos</a>
+    </div>
+  </div>
+
+  <script type="module" src="checkout.js"></script>
+</body>
+</html>
