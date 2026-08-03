@@ -32,11 +32,16 @@ const ENTITLEMENT_ID = 'plus';
 // que se canjea con signInWithCredential, sin el iframe cross-domain de
 // firebaseapp.com (que Chrome rompe con el particionado de almacenamiento).
 const GOOGLE_CLIENT_ID = '652137234079-l4gqtbi1752bu3p3od9ah4pq9j9ofar8.apps.googleusercontent.com';
+
+// Services ID de Apple para web (creado en Apple Developer, distinto del App ID
+// de la app). Es el clientId de "Sign in with Apple JS".
+const APPLE_SERVICES_ID = 'com.gafy.web';
+const APPLE_REDIRECT_URI = 'https://gafy.app/suscribirse/';
 // ─────────────────────────────────────────────────────────────────────────
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {
-  getAuth, GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence,
+  getAuth, GoogleAuthProvider, OAuthProvider, signInWithCredential, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { Purchases } from 'https://esm.sh/@revenuecat/purchases-js@0.15.1';
 
@@ -180,6 +185,61 @@ async function initGoogleButton() {
   });
   _gisReady = true;
 }
+
+// Sign in with Apple (JS SDK) → ID token → signInWithCredential. Igual que GIS,
+// evita el iframe de firebaseapp.com (el popup habla con appleid.apple.com y
+// devuelve el token por postMessage al opener), así funciona con el
+// almacenamiento particionado de Chrome.
+function loadAppleSdk() {
+  return new Promise((resolve, reject) => {
+    if (window.AppleID?.auth) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('No se pudo cargar Sign in with Apple.'));
+    document.head.appendChild(s);
+  });
+}
+
+function randomNonce(len = 32) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._';
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => chars[b % chars.length]).join('');
+}
+
+async function sha256hex(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+$('appleBtn').onclick = async () => {
+  try {
+    await loadAppleSdk();
+    // rawNonce se pasa a Firebase; Apple recibe su SHA-256 (así lo verifica Firebase).
+    const rawNonce = randomNonce();
+    const hashedNonce = await sha256hex(rawNonce);
+    AppleID.auth.init({
+      clientId: APPLE_SERVICES_ID,
+      scope: 'name email',
+      redirectURI: APPLE_REDIRECT_URI,
+      usePopup: true,
+      nonce: hashedNonce,
+    });
+    const res = await AppleID.auth.signIn();
+    const idToken = res?.authorization?.id_token;
+    if (!idToken) throw new Error('Apple no devolvió token.');
+    const cred = new OAuthProvider('apple.com').credential({ idToken, rawNonce });
+    await signInWithCredential(auth, cred);
+    // onAuthStateChanged continúa el flujo (carga de planes).
+  } catch (e) {
+    // Popup cerrado/cancelado por el usuario: no mostramos error.
+    const code = e?.error || e?.message || '';
+    if (/popup_closed|user_cancel|cancel/i.test(code)) return;
+    fatal('No se pudo iniciar sesión con Apple. ' + code);
+  }
+};
 
 $('signout1').onclick = () => signOut(auth);
 
